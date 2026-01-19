@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { ask } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import type { RenameResult, Step, RegexDef, Group } from '../types'
 
@@ -64,6 +65,15 @@ export function useRename() {
 
   const executeRename = async (steps: Step[], regexLibrary: RegexDef[], groups: Group[]) => {
     if (selectedFiles.value.length === 0 || steps.length === 0) return
+
+    const confirmed = await ask(`選択された ${selectedFiles.value.length} 個のファイルをリネームしますか？`, {
+      title: 'リネームの確認',
+      kind: 'warning',
+      okLabel: '実行',
+      cancelLabel: 'キャンセル'
+    })
+
+    if (!confirmed) return
 
     // 参照を解決してフラットな RenameStep リストを作成
     const flattenedSteps: { pattern: string; replacement: string }[] = []

@@ -2,15 +2,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useRename } from '@/composables/useRename'
 import type { Step, RegexDef, Group } from '@/types'
 import { invoke } from '@tauri-apps/api/core'
+import { ask } from '@tauri-apps/plugin-dialog'
 
 // Tauriのinvokeをモック化
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn()
 }))
 
+// Tauriのaskをモック化
+vi.mock('@tauri-apps/plugin-dialog', () => ({
+  ask: vi.fn()
+}))
+
 describe('useRename', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(ask).mockResolvedValue(true) // デフォルトで確認OKとする
   })
 
   const { resolveNewName, executeRename, addFiles, selectedFiles } = useRename()
