@@ -1,0 +1,6 @@
+.history/
+coverage/
+dist/
+node_modules/
+target/
+package-lock.json
