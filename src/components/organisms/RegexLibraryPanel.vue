@@ -16,10 +16,11 @@ const form = ref<RegexDef>({
 })
 
 const previewResult = computed(() => {
-  if (!form.value.pattern || !form.value.sample) return form.value.sample || ''
+  const sample = form.value.sample || ''
+  if (!form.value.pattern || !sample) return sample
   try {
     const re = new RegExp(form.value.pattern, 'g')
-    return form.value.sample.replace(re, form.value.replacement)
+    return sample.replace(re, form.value.replacement)
   } catch (e) {
     return 'Invalid Regex'
   }
@@ -28,10 +29,10 @@ const previewResult = computed(() => {
 const openModal = (regex?: RegexDef) => {
   if (regex) {
     editingId.value = regex.id
-    form.value = { ...regex }
+    form.value = { ...regex, sample: regex.sample || '' }
   } else {
     editingId.value = null
-    form.value = { id: `rx-${Date.now()}`, name: '', pattern: '', replacement: '' }
+    form.value = { id: `rx-${Date.now()}`, name: '', pattern: '', replacement: '', sample: '' }
   }
   showModal.value = true
 }

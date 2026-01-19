@@ -3,6 +3,7 @@ export interface RegexDef {
   name?: string;
   pattern: string;
   replacement: string;
+  sample?: string;
 }
 
 export interface Step {
