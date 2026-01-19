@@ -28,3 +28,6 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 regex = "1.10"
 walkdir = "2.5"
+
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-window-state = "2.4.1"

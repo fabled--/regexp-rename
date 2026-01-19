@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use regex::Regex;
 use tauri::Manager;
+use tauri_plugin_window_state::{AppHandleExt, StateFlags, WindowExt};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RenameStep {
@@ -217,7 +218,24 @@ pub fn run() {
             commands::load_settings,
             commands::save_settings
         ])
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                let _ = window.app_handle().save_window_state(StateFlags::all());
+            }
+        })
         .setup(|_app| {
+            #[cfg(desktop)]
+            let _ = _app
+                .handle()
+                .plugin(tauri_plugin_window_state::Builder::default().build());
+
+            #[cfg(desktop)]
+            {
+                if let Some(window) = _app.get_webview_window("main") {
+                    let _ = window.restore_state(StateFlags::all());
+                }
+            }
+
             #[cfg(debug_assertions)]
             {
                 let window = _app.get_webview_window("main").unwrap();
