@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useSettings } from '@/composables/useSettings'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { RegexDef } from '@/types'
 
 const { settings, saveSettings } = useSettings()
@@ -11,7 +11,18 @@ const form = ref<RegexDef>({
   id: '',
   name: '',
   pattern: '',
-  replacement: ''
+  replacement: '',
+  sample: ''
+})
+
+const previewResult = computed(() => {
+  if (!form.value.pattern || !form.value.sample) return form.value.sample || ''
+  try {
+    const re = new RegExp(form.value.pattern, 'g')
+    return form.value.sample.replace(re, form.value.replacement)
+  } catch (e) {
+    return 'Invalid Regex'
+  }
 })
 
 const openModal = (regex?: RegexDef) => {
@@ -50,22 +61,12 @@ const deleteRegex = async (id: string) => {
 }
 
 const addToActiveGroup = async (regexId: string) => {
-  const activeGroupId = settings.value.activeGroupId
-  let targetSteps: any[] | undefined
-  
-  if (activeGroupId === 'none') {
-    targetSteps = settings.value.ungroupedSteps
-  } else {
-    const group = settings.value.groups.find(g => g.id === activeGroupId)
-    if (group) targetSteps = group.steps
-  }
-    
-  if (targetSteps) {
-    targetSteps.push({ regexId, enabled: true })
-    await saveSettings()
-    // ネイティブダイアログのパーミッションエラーを避けるため、一旦コンソールのみ
-    console.log('Added to group')
-  }
+  const activeGroup = settings.value.groups.find(g => g.id === settings.value.activeGroupId)
+  const targetName = activeGroup ? activeGroup.name : '個別ステップ'
+  const steps = activeGroup ? activeGroup.steps : settings.value.ungroupedSteps
+  steps.push({ regexId, enabled: true })
+  await saveSettings()
+  alert(`「${targetName}」に正規表現を追加しました`)
 }
 </script>
 
@@ -97,19 +98,19 @@ const addToActiveGroup = async (regexId: string) => {
             <div class="text-xs font-mono text-gray-500 mt-1 break-all">Pattern: {{ regex.pattern }}</div>
             <div class="text-xs font-mono text-gray-500 break-all">Replace: {{ regex.replacement }}</div>
           </div>
-          <div class="flex gap-1 shrink-0 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button @click="addToActiveGroup(regex.id)" class="p-1 text-green-600 hover:bg-green-50 rounded" title="グループに追加">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+          <div class="flex items-center gap-2 shrink-0 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button @click="addToActiveGroup(regex.id)" class="p-1.5 text-green-600 hover:bg-green-50 rounded" title="グループに追加">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
               </svg>
             </button>
-            <button @click="openModal(regex)" class="p-1 text-blue-600 hover:bg-blue-50 rounded">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <button @click="openModal(regex)" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="編集">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
               </svg>
             </button>
-            <button @click="deleteRegex(regex.id)" class="p-1 text-red-600 hover:bg-red-50 rounded">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <button @click="deleteRegex(regex.id)" class="p-1.5 text-red-600 hover:bg-red-50 rounded" title="削除">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
               </svg>
             </button>
@@ -134,6 +135,23 @@ const addToActiveGroup = async (regexId: string) => {
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">置換文字列</label>
             <input v-model="form.replacement" type="text" class="w-full border rounded-lg p-2 font-mono focus:ring-2 focus:ring-blue-500 outline-none" placeholder="$1年$2月">
+          </div>
+
+          <!-- Sample Preview (Always shown) -->
+          <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 mt-4">
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">サンプルプレビュー</label>
+            <div class="flex flex-col gap-2">
+              <input 
+                v-model="form.sample" 
+                type="text" 
+                placeholder="テスト用の文字列を入力..."
+                class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2"
+              >
+              <div class="flex items-center gap-2 text-sm mt-1">
+                <span class="text-gray-500">結果:</span>
+                <span class="font-mono font-bold text-blue-600">{{ previewResult }}</span>
+              </div>
+            </div>
           </div>
         </div>
         <div class="flex justify-end gap-3 mt-8">
