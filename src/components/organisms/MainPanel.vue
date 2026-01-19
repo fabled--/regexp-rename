@@ -59,8 +59,8 @@ const getPreviewName = (file: string) => {
         <div v-for="(file, index) in selectedFiles" :key="file" class="flex flex-col py-2 border-b border-gray-100 last:border-0">
           <div class="flex items-center justify-between">
             <span class="text-sm text-gray-400 truncate flex-1 mr-4">{{ file.split(/[/\\]/).pop() }}</span>
-            <button @click.stop="removeFiles([index])" class="text-red-400 hover:text-red-600">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <button @click.stop="removeFiles([index])" class="text-red-400 hover:text-red-600 p-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
