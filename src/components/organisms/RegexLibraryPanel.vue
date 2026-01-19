@@ -90,15 +90,11 @@ const addToActiveGroup = async (regexId: string) => {
       <div 
         v-for="regex in settings.regexLibrary" 
         :key="regex.id" 
-        class="p-4 border border-gray-200 rounded-lg hover:border-blue-300 transition-all group"
+        class="relative p-4 border border-gray-200 rounded-lg hover:border-blue-300 transition-all group overflow-hidden"
       >
-        <div class="flex justify-between items-start">
-          <div class="flex-1 min-w-0">
-            <div class="font-semibold text-gray-800 break-all">{{ regex.name || '(名称未設定)' }}</div>
-            <div class="text-xs font-mono text-gray-500 mt-1 break-all">Pattern: {{ regex.pattern }}</div>
-            <div class="text-xs font-mono text-gray-500 break-all">Replace: {{ regex.replacement }}</div>
-          </div>
-          <div class="flex items-center gap-2 shrink-0 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div class="flex justify-between items-start mb-2">
+          <div class="font-semibold text-gray-800 break-all pr-20">{{ regex.name || '(名称未設定)' }}</div>
+          <div class="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur-sm pl-2 py-1 rounded-l-lg shadow-[-10px_0_15px_-5px_rgba(255,255,255,0.9)]">
             <button @click="addToActiveGroup(regex.id)" class="p-1.5 text-green-600 hover:bg-green-50 rounded" title="グループに追加">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
@@ -115,6 +111,10 @@ const addToActiveGroup = async (regexId: string) => {
               </svg>
             </button>
           </div>
+        </div>
+        <div class="space-y-1">
+          <div class="text-xs font-mono text-gray-500 break-all leading-relaxed"><span class="font-bold text-gray-400 mr-1">Pattern:</span>{{ regex.pattern }}</div>
+          <div class="text-xs font-mono text-gray-500 break-all leading-relaxed"><span class="font-bold text-gray-400 mr-1">Replace:</span>{{ regex.replacement }}</div>
         </div>
       </div>
     </div>
