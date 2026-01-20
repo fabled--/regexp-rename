@@ -45,9 +45,14 @@ describe('Settings Store', () => {
 
   it('should handle load error gracefully', async () => {
     const store = useSettingsStore()
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(invoke).mockRejectedValue(new Error('Backend error'))
 
-    await store.loadSettings()
+    try {
+      await store.loadSettings()
+    } finally {
+      consoleErrorSpy.mockRestore()
+    }
     
     // エラーでも初期値が維持されること
     expect(store.settings.groups).toHaveLength(0)

@@ -154,11 +154,18 @@ describe('useRename', () => {
     it('should handle backend error', async () => {
       const { addFiles, executeRename } = useRename()
       addFiles(['file.txt'])
-      
+
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
       vi.mocked(invoke).mockRejectedValue(new Error('Rename failed'))
 
       const steps: Step[] = [{ regexId: 'rx1', enabled: true }]
-      await expect(executeRename(steps, mockRegexLibrary, mockGroups)).rejects.toThrow('Rename failed')
+
+      try {
+        await expect(executeRename(steps, mockRegexLibrary, mockGroups)).rejects.toThrow('Rename failed')
+      } finally {
+        consoleErrorSpy.mockRestore()
+      }
     })
   })
 })
