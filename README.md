@@ -16,6 +16,36 @@
 
 アプリ終了時にウィンドウの状態（**位置 / サイズ / 最大化状態**）を保存し、次回起動時に復元します。
 
+## CI / Release (GitHub Actions)
+
+このリポジトリには GitHub Actions の workflow を用意しています。
+
+### PR でテストが落ちたらビルドしない
+
+- **対象**: `main` 向け Pull Request
+- **workflow**: `.github/workflows/pr-test.yml`
+- **内容**:
+  - `npm run build`（型チェック含む）
+  - `npm test`（Vitest）
+  - `cargo test`（src-tauri）
+
+### テストが通ったら Windows でビルドして Release に公開
+
+- **対象**: `v*` のタグ push（例: `v0.2.1`）
+- **workflow**: `.github/workflows/release-windows.yml`
+- **内容**:
+  - 先に `test` ジョブが走り、成功した場合のみ `build-windows` が実行されます（`needs: test`）
+  - `tauri-apps/tauri-action` を使って Windows 版の成果物を GitHub Release にアップロードします
+
+#### リリース手順（例）
+
+1. `package.json` / `src-tauri/tauri.conf.json` の `version` を更新
+2. タグを作成して push
+   - `git tag v0.2.1`
+   - `git push origin v0.2.1`
+
+※ Release の作成/アップロードは `GITHUB_TOKEN` を使用します（追加の Secrets は不要）。
+
 ## 1. メイン画面 (メイン操作タブ)
 
 日常的なリネーム作業を行う画面です。
