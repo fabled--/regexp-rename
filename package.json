@@ -1,12 +1,14 @@
 {
   "name": "regexp-rename",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc && vite build",
     "preview": "vite preview",
     "test": "vitest",
+    "release:version": "node scripts/bump-version.mjs",
+    "release:tag": "node scripts/push-tag.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

@@ -35,6 +35,9 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+
       - name: Rust tests
         working-directory: src-tauri
         run: cargo test

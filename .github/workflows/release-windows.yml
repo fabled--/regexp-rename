@@ -6,41 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install system dependencies (Ubuntu)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libglib2.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: npm
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Frontend typecheck + build
-        run: npm run build
-
-      - name: Frontend tests
-        run: npm test
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust tests
-        working-directory: src-tauri
-        run: cargo test
-
   build-windows:
-    needs: test
     runs-on: windows-latest
 
     permissions:
@@ -48,6 +14,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -58,8 +26,51 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: Generate release notes prefix
+        id: release_notes
+        shell: pwsh
+        run: |
+          $current = "${{ github.ref_name }}"
+          $repo = "${{ github.repository }}"
+
+          $tags = (git tag --list "v*" --sort=-version:refname)
+          $prev = $null
+          foreach ($t in $tags) {
+            if ($t -ne $current) { $prev = $t; break }
+          }
+
+          if ($prev) {
+            $compare = "https://github.com/$repo/compare/$prev...$current"
+            $commits = (git log --no-merges --pretty=format:"- [`%h`](https://github.com/$repo/commit/%H): %s" "$prev..HEAD")
+          } else {
+            $compare = "https://github.com/$repo/commits/$current"
+            $commits = (git log --no-merges --pretty=format:"- [`%h`](https://github.com/$repo/commit/%H): %s")
+          }
+
+          $md = @()
+          $md += "## Changes"
+          $md += ""
+          if ($prev) {
+            $md += "- Compare: $compare"
+            $md += "- From: $prev → $current"
+          } else {
+            $md += "- Commits: $compare"
+          }
+          $md += ""
+          $md += "## Commits"
+          $md += ""
+          $md += $commits
+          $body = ($md -join "`n")
+
+          "body<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          $body | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - uses: tauri-apps/tauri-action@v0
         env:
@@ -67,6 +78,34 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: 'Regexp Rename Tool v__VERSION__'
-          releaseBody: 'See the assets to download this version and install.'
+          releaseBody: ${{ steps.release_notes.outputs.body }}
+          generateReleaseNotes: true
           releaseDraft: false
           prerelease: false
+
+      - name: Create portable zip
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $exe = Get-ChildItem -Path "src-tauri/target/release" -Filter "*.exe" -File | Select-Object -First 1
+          if (-not $exe) { throw "Portable exe not found under src-tauri/target/release" }
+          $zipName = "regexp-rename_${tag}_windows_portable.zip"
+          if (Test-Path $zipName) { Remove-Item $zipName -Force }
+          $stage = Join-Path $PWD "portable"
+          if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+          New-Item -ItemType Directory -Path $stage | Out-Null
+          Copy-Item -Path $exe.FullName -Destination (Join-Path $stage $exe.Name)
+          if (Test-Path "README.md") {
+            Copy-Item -Path "README.md" -Destination (Join-Path $stage "README.md")
+          }
+          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $zipName
+          Write-Host "Created $zipName"
+
+      - name: Upload portable zip to GitHub Release
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $zip = "regexp-rename_${tag}_windows_portable.zip"
+          gh release upload $tag $zip --clobber
