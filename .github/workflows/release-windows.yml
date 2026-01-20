@@ -11,6 +11,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install system dependencies (Ubuntu)
         run: |
@@ -48,6 +50,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -61,13 +65,54 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - uses: tauri-apps/tauri-action@v1
+      - name: Generate release notes prefix
+        id: release_notes
+        shell: pwsh
+        run: |
+          $current = "${{ github.ref_name }}"
+          $repo = "${{ github.repository }}"
+
+          $tags = (git tag --list "v*" --sort=-version:refname)
+          $prev = $null
+          foreach ($t in $tags) {
+            if ($t -ne $current) { $prev = $t; break }
+          }
+
+          if ($prev) {
+            $compare = "https://github.com/$repo/compare/$prev...$current"
+            $commits = (git log --no-merges --pretty=format:"- [`%h`](https://github.com/$repo/commit/%H): %s" "$prev..HEAD")
+          } else {
+            $compare = "https://github.com/$repo/commits/$current"
+            $commits = (git log --no-merges --pretty=format:"- [`%h`](https://github.com/$repo/commit/%H): %s")
+          }
+
+          $md = @()
+          $md += "## Changes"
+          $md += ""
+          if ($prev) {
+            $md += "- Compare: $compare"
+            $md += "- From: $prev → $current"
+          } else {
+            $md += "- Commits: $compare"
+          }
+          $md += ""
+          $md += "## Commits"
+          $md += ""
+          $md += $commits
+          $body = ($md -join "`n")
+
+          "body<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          $body | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__
           releaseName: 'Regexp Rename Tool v__VERSION__'
-          releaseBody: 'See the assets to download this version and install.'
+          releaseBody: ${{ steps.release_notes.outputs.body }}
+          generateReleaseNotes: true
           releaseDraft: false
           prerelease: false
 
