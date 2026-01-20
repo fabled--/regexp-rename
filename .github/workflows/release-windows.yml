@@ -87,14 +87,17 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
+          $pkg = Get-Content "package.json" -Raw | ConvertFrom-Json
+          $appName = [string]$pkg.name
+          $appName = ($appName -replace '[\\/:*?"<>|]', '-')
           $exe = Get-ChildItem -Path "src-tauri/target/release" -Filter "*.exe" -File | Select-Object -First 1
           if (-not $exe) { throw "Portable exe not found under src-tauri/target/release" }
-          $zipName = "regexp-rename_${tag}_windows_portable.zip"
+          $zipName = "${appName}_${tag}_windows_portable.zip"
           if (Test-Path $zipName) { Remove-Item $zipName -Force }
           $stage = Join-Path $PWD "portable"
           if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
           New-Item -ItemType Directory -Path $stage | Out-Null
-          Copy-Item -Path $exe.FullName -Destination (Join-Path $stage $exe.Name)
+          Copy-Item -Path $exe.FullName -Destination (Join-Path $stage "${appName}.exe")
           if (Test-Path "README.md") {
             Copy-Item -Path "README.md" -Destination (Join-Path $stage "README.md")
           }
@@ -107,5 +110,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $tag = "${{ github.ref_name }}"
-          $zip = "regexp-rename_${tag}_windows_portable.zip"
+          $pkg = Get-Content "package.json" -Raw | ConvertFrom-Json
+          $appName = [string]$pkg.name
+          $appName = ($appName -replace '[\\/:*?"<>|]', '-')
+          $zip = "${appName}_${tag}_windows_portable.zip"
           gh release upload $tag $zip --clobber
