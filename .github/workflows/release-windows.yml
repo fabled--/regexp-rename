@@ -70,3 +70,30 @@ jobs:
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: false
           prerelease: false
+
+      - name: Create portable zip
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $exe = Get-ChildItem -Path "src-tauri/target/release" -Filter "*.exe" -File | Select-Object -First 1
+          if (-not $exe) { throw "Portable exe not found under src-tauri/target/release" }
+          $zipName = "regexp-rename_${tag}_windows_portable.zip"
+          if (Test-Path $zipName) { Remove-Item $zipName -Force }
+          $stage = Join-Path $PWD "portable"
+          if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+          New-Item -ItemType Directory -Path $stage | Out-Null
+          Copy-Item -Path $exe.FullName -Destination (Join-Path $stage $exe.Name)
+          if (Test-Path "README.md") {
+            Copy-Item -Path "README.md" -Destination (Join-Path $stage "README.md")
+          }
+          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $zipName
+          Write-Host "Created $zipName"
+
+      - name: Upload portable zip to GitHub Release
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $zip = "regexp-rename_${tag}_windows_portable.zip"
+          gh release upload $tag $zip --clobber
