@@ -104,11 +104,11 @@ const getStepName = (step: Step) => {
 <template>
   <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
     <div class="flex items-center justify-between mb-6">
-      <h2 class="text-xl font-bold text-gray-800">グループ編集</h2>
-      <div class="flex gap-2">
+      <h2 class="text-xl font-bold text-gray-800 min-w-0 truncate">グループ編集</h2>
+      <div class="flex gap-2 shrink-0">
         <button 
           @click="addGroup"
-          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap"
         >
           グループ追加
         </button>
@@ -116,7 +116,7 @@ const getStepName = (step: Step) => {
     </div>
 
     <div class="flex items-center gap-4 mb-4">
-      <div class="flex-1">
+      <div class="flex-1 min-w-0">
         <select 
           v-model="settings.activeGroupId"
           class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
@@ -130,14 +130,14 @@ const getStepName = (step: Step) => {
       <button 
         @click="renameGroup"
         :disabled="settings.activeGroupId === 'none'"
-        class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+        class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 shrink-0 whitespace-nowrap"
       >
         名前変更
       </button>
       <button 
         @click.stop="deleteGroup"
         :disabled="settings.activeGroupId === 'none'"
-        class="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+        class="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 shrink-0 whitespace-nowrap"
       >
         削除
       </button>
@@ -147,7 +147,7 @@ const getStepName = (step: Step) => {
       <div class="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
         <select 
           v-model="selectedRegexId"
-          class="flex-1 bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2"
+          class="flex-1 min-w-0 bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2"
         >
           <option value="" disabled>正規表現を選択...</option>
           <option v-for="rx in settings.regexLibrary" :key="rx.id" :value="rx.id">
@@ -157,7 +157,7 @@ const getStepName = (step: Step) => {
         <button 
           @click="addRegexToCurrent"
           :disabled="!selectedRegexId"
-          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 shrink-0 whitespace-nowrap"
         >
           追加
         </button>
@@ -166,7 +166,7 @@ const getStepName = (step: Step) => {
       <div class="flex items-center gap-2 p-3 bg-purple-50 rounded-lg border border-purple-100">
         <select 
           v-model="selectedGroupRefId"
-          class="flex-1 bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2"
+          class="flex-1 min-w-0 bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2"
         >
           <option value="" disabled>グループ参照を選択...</option>
           <option v-for="g in availableGroupsForRef" :key="g.id" :value="g.id">
@@ -176,7 +176,7 @@ const getStepName = (step: Step) => {
         <button 
           @click="addGroupRefToCurrent"
           :disabled="!selectedGroupRefId"
-          class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+          class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 shrink-0 whitespace-nowrap"
         >
           参照追加
         </button>
