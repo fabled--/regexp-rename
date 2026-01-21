@@ -75,4 +75,28 @@ describe('RegexLibraryPanel', () => {
     expect(settingsRef.value.regexLibrary.map(r => r.id)).toEqual(['rx-2'])
     expect(saveSettingsSpy).toHaveBeenCalledTimes(1)
   })
+
+  it('サンプルプレビューでマッチグループを表示する', async () => {
+    ;({ default: RegexLibraryPanel } = await import('@/components/organisms/RegexLibraryPanel.vue'))
+
+    const wrapper = mount(RegexLibraryPanel)
+
+    await wrapper.find('button').trigger('click')
+    await flushPromises()
+
+    const inputs = wrapper.findAll('input')
+    expect(inputs.length).toBeGreaterThanOrEqual(4)
+
+    await inputs[1].setValue('(\\d{4})-(\\d{2})-(\\d{2})')
+    await inputs[2].setValue('$1/$2/$3')
+    await inputs[3].setValue('2025-12-25')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('$1:')
+    expect(wrapper.text()).toContain('2025')
+    expect(wrapper.text()).toContain('$2:')
+    expect(wrapper.text()).toContain('12')
+    expect(wrapper.text()).toContain('$3:')
+    expect(wrapper.text()).toContain('25')
+  })
 })
