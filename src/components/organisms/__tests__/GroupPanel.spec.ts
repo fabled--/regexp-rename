@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
+import type { Ref } from 'vue'
 import type { Settings, RegexDef, Group } from '@/types'
 import { ask } from '@tauri-apps/plugin-dialog'
 
@@ -9,7 +10,7 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 }))
 
 describe('GroupPanel', () => {
-  let settingsRef: ReturnType<typeof ref<Settings>>
+  let settingsRef!: Ref<Settings>
   let saveSettingsSpy: ReturnType<typeof vi.fn>
   let GroupPanel: typeof import('@/components/organisms/GroupPanel.vue')['default']
 
