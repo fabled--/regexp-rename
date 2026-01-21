@@ -30,6 +30,7 @@ describe('Settings Store', () => {
     expect(invoke).toHaveBeenCalledWith('load_settings')
     expect(store.settings.groups).toHaveLength(1)
     expect(store.settings.activeGroupId).toBe('g1')
+    expect(store.settings.normalization).toBeTruthy()
   })
 
   it('should save settings to backend', async () => {

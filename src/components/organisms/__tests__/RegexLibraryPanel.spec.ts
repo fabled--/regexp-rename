@@ -18,7 +18,16 @@ describe('RegexLibraryPanel', () => {
     groups: [],
     ungroupedSteps: [],
     activeGroupId: 'none',
-    regexLibrary
+    regexLibrary,
+    normalization: {
+      space: true,
+      waveDash: true,
+      dash: true,
+      middleDot: true,
+      brackets: true,
+      colon: true,
+      slash: true
+    }
   })
 
   beforeEach(() => {

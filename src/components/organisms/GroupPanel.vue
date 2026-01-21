@@ -17,7 +17,7 @@ const addGroup = async () => {
   const newGroup: Group = {
     id: `group-${Date.now()}`,
     name,
-    steps: []
+    steps: [{ normalize: true, enabled: true }]
   }
   settings.value.groups.push(newGroup)
   settings.value.activeGroupId = newGroup.id
@@ -91,6 +91,9 @@ const availableGroupsForRef = computed(() => {
 })
 
 const getStepName = (step: Step) => {
+  if (step.normalize) {
+    return '正規化 (NFKC)'
+  }
   if (step.regexId) {
     return settings.value.regexLibrary.find(r => r.id === step.regexId)?.name || '名称未設定'
   }

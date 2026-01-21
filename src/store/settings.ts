@@ -8,14 +8,34 @@ export const useSettingsStore = defineStore('settings', () => {
     groups: [],
     ungroupedSteps: [],
     activeGroupId: 'none',
-    regexLibrary: []
+    regexLibrary: [],
+    normalization: {
+      space: true,
+      waveDash: true,
+      dash: true,
+      middleDot: true,
+      brackets: true,
+      colon: true,
+      slash: true
+    }
   })
 
   const loadSettings = async () => {
     try {
       const data = await invoke<Settings>('load_settings')
       if (data) {
-        settings.value = data
+        settings.value = {
+          ...data,
+          normalization: {
+            space: data.normalization?.space ?? true,
+            waveDash: data.normalization?.waveDash ?? true,
+            dash: data.normalization?.dash ?? true,
+            middleDot: data.normalization?.middleDot ?? true,
+            brackets: data.normalization?.brackets ?? true,
+            colon: data.normalization?.colon ?? true,
+            slash: data.normalization?.slash ?? true
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to load settings:', error)
