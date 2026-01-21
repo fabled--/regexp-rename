@@ -30,6 +30,19 @@ trigger: auto
 - **グループ仕様**: デフォルトで `id: "none"` (名前: 「なし」) のグループを許容し、初期状態や未選択時のハンドリングを適切に行う必要があります。
 - **循環参照防止**: グループ参照機能があるため、プレビューや実行時に循環参照をチェックし、エラーとして表示する必要があります。
 
+## 正規化（Normalize）機能について
+- ステップに **正規化 (NFKC)** が追加されています（`Step.normalize`）。
+- 新規グループ作成時、先頭に **正規化ステップが自動挿入**されます。
+- 正規化の挙動（記号統一など）は「設定」タブでON/OFFできます（`Settings.normalization`）。
+
+## IPC / Backend 実装の注意点（RenameStep）
+- Rust 側の rename 実行は [execute_rename_files](cci:1://file:///c:/codes/regexp-rename/src-tauri/src/lib.rs:178:4-249:5) で行います。
+- `steps` は [RenameStep](cci:2://file:///c:/codes/regexp-rename/src/types/index.ts:39:0-41:25) の union/enum（`regex` / `normalize`）として送ります。
+- 実行時は `normalization` も一緒に送って、Rust 側でも同じ正規化が適用されます。
+
+## テスト実行の注意点（Vitest）
+- Windows環境で worker 起動が不安定な場合があるため、[vitest.config.ts](cci:7://file:///c:/codes/regexp-rename/vitest.config.ts:0:0-0:0) で `pool: 'threads'` を使用しています。
+
 ## コードの編集・追加時
 - コードの編集・追加時、相関するテストコードも編集・追加する
 - コードの編集・追加時、相関するドキュメント(README.mdなど)も編集・追加する
