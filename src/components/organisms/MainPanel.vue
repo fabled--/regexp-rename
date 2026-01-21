@@ -34,11 +34,11 @@ const getPreviewName = (file: string) => {
   <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
     <div class="flex items-center justify-between mb-6">
       <h2 class="text-xl font-bold text-gray-800">メイン操作</h2>
-      <div class="flex items-center gap-4">
-        <label class="text-sm font-semibold text-gray-700">正規表現グループ</label>
+      <div class="flex items-center gap-4 min-w-0">
+        <label class="text-sm font-semibold text-gray-700 shrink-0">正規表現グループ</label>
         <select 
           v-model="settings.activeGroupId"
-          class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 min-w-[150px]"
+          class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 min-w-0 min-w-[150px]"
         >
           <option value="none">なし</option>
           <option v-for="group in settings.groups" :key="group.id" :value="group.id">
