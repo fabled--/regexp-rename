@@ -1,7 +1,36 @@
 import { ref } from 'vue'
 import { ask } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
-import type { RenameResult, Step, RegexDef, Group } from '../types'
+import type { RenameResult, Step, RegexDef, Group, RenameStep, NormalizationOptions } from '../types'
+
+const applyNormalization = (input: string, options: NormalizationOptions): string => {
+  let s = input.normalize('NFKC')
+
+  if (options.space) {
+    s = s.replace(/\u3000/g, ' ')
+    s = s.replace(/ +/g, ' ')
+  }
+  if (options.waveDash) {
+    s = s.replace(/[〜∼～]/g, '～')
+  }
+  if (options.dash) {
+    s = s.replace(/[‐‑–—―－]/g, '-')
+  }
+  if (options.middleDot) {
+    s = s.replace(/[･··•]/g, '・')
+  }
+  if (options.brackets) {
+    s = s.replace(/[（]/g, '(').replace(/[）]/g, ')')
+  }
+  if (options.colon) {
+    s = s.replace(/[:]/g, '：')
+  }
+  if (options.slash) {
+    s = s.replace(/[\/]/g, '／')
+  }
+
+  return s
+}
 
 export function useRename() {
   const selectedFiles = ref<string[]>([])
@@ -23,21 +52,29 @@ export function useRename() {
     })
   }
 
-  const resolveNewName = (oldPath: string, steps: Step[], regexLibrary: RegexDef[], groups: Group[]) => {
+  const resolveNewName = (
+    oldPath: string,
+    steps: Step[],
+    regexLibrary: RegexDef[],
+    groups: Group[],
+    normalization: NormalizationOptions
+  ) => {
     const fileName = oldPath.split(/[/\\]/).pop() || ''
     const lastDot = fileName.lastIndexOf('.')
     const ext = lastDot !== -1 ? fileName.slice(lastDot) : ''
     let stem = lastDot !== -1 ? fileName.slice(0, lastDot) : fileName
 
-    const flattenedSteps: { pattern: string; replacement: string }[] = []
+    const flattenedSteps: RenameStep[] = []
     const resolveSteps = (currentSteps: Step[], visited: Set<string>) => {
       for (const step of currentSteps) {
         if (step.enabled === false) continue
         
-        if (step.regexId) {
+        if (step.normalize) {
+          flattenedSteps.push({ type: 'normalize' })
+        } else if (step.regexId) {
           const rx = regexLibrary.find(r => r.id === step.regexId)
           if (rx) {
-            flattenedSteps.push({ pattern: rx.pattern, replacement: rx.replacement })
+            flattenedSteps.push({ type: 'regex', pattern: rx.pattern, replacement: rx.replacement })
           }
         } else if (step.groupRefId) {
           if (visited.has(step.groupRefId)) continue
@@ -54,8 +91,12 @@ export function useRename() {
 
     try {
       for (const step of flattenedSteps) {
-        const re = new RegExp(step.pattern, 'g')
-        stem = stem.replace(re, step.replacement)
+        if (step.type === 'normalize') {
+          stem = applyNormalization(stem, normalization)
+        } else {
+          const re = new RegExp(step.pattern, 'g')
+          stem = stem.replace(re, step.replacement)
+        }
       }
       return stem + ext
     } catch (error) {
@@ -63,7 +104,12 @@ export function useRename() {
     }
   }
 
-  const executeRename = async (steps: Step[], regexLibrary: RegexDef[], groups: Group[]) => {
+  const executeRename = async (
+    steps: Step[],
+    regexLibrary: RegexDef[],
+    groups: Group[],
+    normalization: NormalizationOptions
+  ) => {
     if (selectedFiles.value.length === 0 || steps.length === 0) return
 
     const confirmed = await ask(`選択された ${selectedFiles.value.length} 個のファイルをリネームしますか？`, {
@@ -76,15 +122,17 @@ export function useRename() {
     if (!confirmed) return
 
     // 参照を解決してフラットな RenameStep リストを作成
-    const flattenedSteps: { pattern: string; replacement: string }[] = []
+    const flattenedSteps: RenameStep[] = []
     const resolveSteps = (currentSteps: Step[], visited: Set<string>) => {
       for (const step of currentSteps) {
         if (step.enabled === false) continue
         
-        if (step.regexId) {
+        if (step.normalize) {
+          flattenedSteps.push({ type: 'normalize' })
+        } else if (step.regexId) {
           const rx = regexLibrary.find(r => r.id === step.regexId)
           if (rx) {
-            flattenedSteps.push({ pattern: rx.pattern, replacement: rx.replacement })
+            flattenedSteps.push({ type: 'regex', pattern: rx.pattern, replacement: rx.replacement })
           }
         } else if (step.groupRefId) {
           if (visited.has(step.groupRefId)) continue // 循環参照防止
@@ -105,7 +153,8 @@ export function useRename() {
     try {
       const results = await invoke<RenameResult[]>('execute_rename_files', {
         files: selectedFiles.value,
-        steps: flattenedSteps
+        steps: flattenedSteps,
+        normalization
       })
       
       results.forEach((res: RenameResult) => {

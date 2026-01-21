@@ -23,7 +23,16 @@ describe('GroupPanel', () => {
     groups: params.groups,
     ungroupedSteps: params.ungroupedSteps ?? [],
     activeGroupId: params.activeGroupId ?? 'none',
-    regexLibrary: params.regexLibrary ?? []
+    regexLibrary: params.regexLibrary ?? [],
+    normalization: {
+      space: true,
+      waveDash: true,
+      dash: true,
+      middleDot: true,
+      brackets: true,
+      colon: true,
+      slash: true
+    }
   })
 
   beforeEach(() => {

@@ -4,11 +4,42 @@ use std::path::{Path, PathBuf};
 use regex::Regex;
 use tauri::Manager;
 use tauri_plugin_window_state::{AppHandleExt, StateFlags, WindowExt};
+use unicode_normalization::UnicodeNormalization;
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+pub struct NormalizationOptions {
+    pub space: bool,
+    #[serde(rename = "waveDash")]
+    pub wave_dash: bool,
+    pub dash: bool,
+    #[serde(rename = "middleDot")]
+    pub middle_dot: bool,
+    pub brackets: bool,
+    pub colon: bool,
+    pub slash: bool,
+}
+
+impl Default for NormalizationOptions {
+    fn default() -> Self {
+        Self {
+            space: true,
+            wave_dash: true,
+            dash: true,
+            middle_dot: true,
+            brackets: true,
+            colon: true,
+            slash: true,
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct RenameStep {
-    pub pattern: String,
-    pub replacement: String,
+#[serde(tag = "type")]
+pub enum RenameStep {
+    #[serde(rename = "regex")]
+    Regex { pattern: String, replacement: String },
+    #[serde(rename = "normalize")]
+    Normalize,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -47,6 +78,8 @@ pub struct Settings {
     pub active_group_id: Option<String>,
     #[serde(rename = "regexLibrary")]
     pub regex_library: Vec<RegexDef>,
+    #[serde(default)]
+    pub normalization: NormalizationOptions,
 }
 
 fn get_settings_path(app_handle: &tauri::AppHandle) -> PathBuf {
@@ -60,6 +93,37 @@ fn get_settings_path(app_handle: &tauri::AppHandle) -> PathBuf {
 mod commands {
     use super::*;
 
+    fn apply_normalization(input: &str, options: NormalizationOptions) -> String {
+        let mut s: String = input.nfkc().collect();
+
+        if options.space {
+            s = s.replace('\u{3000}', " ");
+            while s.contains("  ") {
+                s = s.replace("  ", " ");
+            }
+        }
+        if options.wave_dash {
+            s = s.replace(['〜', '∼', '～'], "～");
+        }
+        if options.dash {
+            s = s.replace(['‐', '‑', '–', '—', '―', '－'], "-");
+        }
+        if options.middle_dot {
+            s = s.replace(['･', '·', '·', '•'], "・");
+        }
+        if options.brackets {
+            s = s.replace('（', "(").replace('）', ")");
+        }
+        if options.colon {
+            s = s.replace(':', "：");
+        }
+        if options.slash {
+            s = s.replace('/', "／");
+        }
+
+        s
+    }
+
     #[tauri::command]
     pub async fn load_settings(app_handle: tauri::AppHandle) -> Result<Settings, String> {
         let path = get_settings_path(&app_handle);
@@ -69,6 +133,7 @@ mod commands {
                 ungrouped_steps: Vec::new(),
                 active_group_id: None,
                 regex_library: Vec::new(),
+                normalization: NormalizationOptions::default(),
             });
         }
         let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
@@ -85,11 +150,23 @@ mod commands {
         fs::write(path, content).map_err(|e| e.to_string())
     }
 
-    pub fn apply_rename(stem: &str, ext: &str, steps: &[RenameStep]) -> Result<String, String> {
+    pub fn apply_rename(
+        stem: &str,
+        ext: &str,
+        steps: &[RenameStep],
+        normalization: NormalizationOptions,
+    ) -> Result<String, String> {
         let mut current_name = stem.to_string();
         for step in steps {
-            let re = Regex::new(&step.pattern).map_err(|e| e.to_string())?;
-            current_name = re.replace_all(&current_name, &step.replacement).into_owned();
+            match step {
+                RenameStep::Normalize => {
+                    current_name = apply_normalization(&current_name, normalization);
+                }
+                RenameStep::Regex { pattern, replacement } => {
+                    let re = Regex::new(pattern).map_err(|e| e.to_string())?;
+                    current_name = re.replace_all(&current_name, replacement.as_str()).into_owned();
+                }
+            }
         }
 
         if ext.is_empty() {
@@ -100,7 +177,11 @@ mod commands {
     }
 
     #[tauri::command]
-    pub async fn execute_rename_files(files: Vec<String>, steps: Vec<RenameStep>) -> Vec<RenameResult> {
+    pub async fn execute_rename_files(
+        files: Vec<String>,
+        steps: Vec<RenameStep>,
+        normalization: NormalizationOptions,
+    ) -> Vec<RenameResult> {
         let mut results = Vec::new();
 
         for file_path in files {
@@ -122,7 +203,7 @@ mod commands {
             let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
             let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
 
-            match apply_rename(stem, ext, &steps) {
+            match apply_rename(stem, ext, &steps, normalization) {
                 Ok(new_file_name) => {
                     if new_file_name == old_name {
                         results.push(RenameResult {
@@ -173,19 +254,20 @@ mod commands {
 mod tests {
     use super::commands::*;
     use crate::RenameStep;
+    use crate::NormalizationOptions;
 
     #[test]
     fn test_rename_logic() {
         let stem = "2023-12-25";
         let ext = "txt";
         let steps = vec![
-            RenameStep {
+            RenameStep::Regex {
                 pattern: r"(\d{4})-(\d{2})-(\d{2})".to_string(),
                 replacement: "$1年$2月$3日".to_string(),
-            },
+            }
         ];
 
-        let result = apply_rename(stem, ext, &steps).unwrap();
+        let result = apply_rename(stem, ext, &steps, NormalizationOptions::default()).unwrap();
         assert_eq!(result, "2023年12月25日.txt");
     }
 
@@ -194,18 +276,28 @@ mod tests {
         let stem = "test-file";
         let ext = "txt";
         let steps = vec![
-            RenameStep {
+            RenameStep::Regex {
                 pattern: "test".to_string(),
                 replacement: "prod".to_string(),
             },
-            RenameStep {
+            RenameStep::Regex {
                 pattern: "file".to_string(),
                 replacement: "data".to_string(),
-            },
+            }
         ];
 
-        let result = apply_rename(stem, ext, &steps).unwrap();
+        let result = apply_rename(stem, ext, &steps, NormalizationOptions::default()).unwrap();
         assert_eq!(result, "prod-data.txt");
+    }
+
+    #[test]
+    fn test_normalize_step() {
+        let stem = "ＮＨＫ　2025:12/25";
+        let ext = "txt";
+        let steps = vec![RenameStep::Normalize];
+
+        let result = apply_rename(stem, ext, &steps, NormalizationOptions::default()).unwrap();
+        assert_eq!(result, "NHK 2025：12／25.txt");
     }
 }
 

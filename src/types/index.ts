@@ -6,9 +6,20 @@ export interface RegexDef {
   sample?: string;
 }
 
+export interface NormalizationOptions {
+  space: boolean;
+  waveDash: boolean;
+  dash: boolean;
+  middleDot: boolean;
+  brackets: boolean;
+  colon: boolean;
+  slash: boolean;
+}
+
 export interface Step {
   regexId?: string;
   groupRefId?: string;
+  normalize?: boolean;
   enabled?: boolean;
 }
 
@@ -23,7 +34,12 @@ export interface Settings {
   ungroupedSteps: Step[];
   activeGroupId?: string;
   regexLibrary: RegexDef[];
+  normalization: NormalizationOptions;
 }
+
+export type RenameStep =
+  | { type: 'regex'; pattern: string; replacement: string }
+  | { type: 'normalize' }
 
 export interface RenameResult {
   success: boolean;

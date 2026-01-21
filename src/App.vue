@@ -5,6 +5,7 @@ import TabButton from '@/components/atoms/TabButton.vue'
 import MainPanel from '@/components/organisms/MainPanel.vue'
 import GroupPanel from '@/components/organisms/GroupPanel.vue'
 import RegexLibraryPanel from '@/components/organisms/RegexLibraryPanel.vue'
+import SettingsPanel from '@/components/organisms/SettingsPanel.vue'
 
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 
@@ -15,7 +16,8 @@ const activeTab = ref('main')
 const tabs = [
   { id: 'main', label: 'メイン' },
   { id: 'group', label: 'グループ' },
-  { id: 'regex', label: '正規表現' }
+  { id: 'regex', label: '正規表現' },
+  { id: 'settings', label: '設定' }
 ]
 
 onMounted(async () => {
@@ -41,6 +43,7 @@ onMounted(async () => {
       <MainPanel v-show="activeTab === 'main'" />
       <GroupPanel v-show="activeTab === 'group'" />
       <RegexLibraryPanel v-show="activeTab === 'regex'" />
+      <SettingsPanel v-show="activeTab === 'settings'" />
     </main>
   </div>
 </template>

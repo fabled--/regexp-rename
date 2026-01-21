@@ -20,13 +20,13 @@ onMounted(async () => {
 const handleRename = async () => {
   const activeGroup = settings.value.groups.find(g => g.id === settings.value.activeGroupId)
   const steps = activeGroup ? activeGroup.steps : settings.value.ungroupedSteps
-  await executeRename(steps, settings.value.regexLibrary, settings.value.groups)
+  await executeRename(steps, settings.value.regexLibrary, settings.value.groups, settings.value.normalization)
 }
 
 const getPreviewName = (file: string) => {
   const activeGroup = settings.value.groups.find(g => g.id === settings.value.activeGroupId)
   const steps = activeGroup ? activeGroup.steps : settings.value.ungroupedSteps
-  return resolveNewName(file, steps, settings.value.regexLibrary, settings.value.groups)
+  return resolveNewName(file, steps, settings.value.regexLibrary, settings.value.groups, settings.value.normalization)
 }
 </script>
 

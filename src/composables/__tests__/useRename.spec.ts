@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useRename } from '@/composables/useRename'
-import type { Step, RegexDef, Group } from '@/types'
+import type { Step, RegexDef, Group, NormalizationOptions } from '@/types'
 import { invoke } from '@tauri-apps/api/core'
 import { ask } from '@tauri-apps/plugin-dialog'
 
@@ -27,6 +27,16 @@ describe('useRename', () => {
     { id: 'rx2', name: 'Prefix', pattern: '^', replacement: '[重要]_' }
   ]
 
+  const mockNormalization: NormalizationOptions = {
+    space: true,
+    waveDash: true,
+    dash: true,
+    middleDot: true,
+    brackets: true,
+    colon: true,
+    slash: true
+  }
+
   const mockGroups: Group[] = [
     {
       id: 'g1',
@@ -42,7 +52,7 @@ describe('useRename', () => {
     const oldPath = 'C:/test/2023-12-25.txt'
     const steps: Step[] = [{ regexId: 'rx1', enabled: true }]
     
-    const result = resolveNewName(oldPath, steps, mockRegexLibrary, mockGroups)
+    const result = resolveNewName(oldPath, steps, mockRegexLibrary, mockGroups, mockNormalization)
     expect(result).toBe('2023年12月25日.txt')
   })
 
@@ -53,7 +63,7 @@ describe('useRename', () => {
       { regexId: 'rx2', enabled: true }
     ]
     
-    const result = resolveNewName(oldPath, steps, mockRegexLibrary, mockGroups)
+    const result = resolveNewName(oldPath, steps, mockRegexLibrary, mockGroups, mockNormalization)
     expect(result).toBe('[重要]_2023年12月25日.txt')
   })
 
@@ -64,7 +74,7 @@ describe('useRename', () => {
       { regexId: 'rx2', enabled: true }
     ]
     
-    const result = resolveNewName(oldPath, steps, mockRegexLibrary, mockGroups)
+    const result = resolveNewName(oldPath, steps, mockRegexLibrary, mockGroups, mockNormalization)
     expect(result).toBe('[重要]_2023-12-25.txt')
   })
 
@@ -89,7 +99,7 @@ describe('useRename', () => {
     ]
     const steps: Step[] = [{ groupRefId: 'g_parent', enabled: true }]
     
-    const result = resolveNewName(oldPath, steps, mockRegexLibrary, nestedGroups)
+    const result = resolveNewName(oldPath, steps, mockRegexLibrary, nestedGroups, mockNormalization)
     expect(result).toBe('[重要]_2023年12月25日.txt')
   })
 
@@ -109,8 +119,16 @@ describe('useRename', () => {
     ]
     const steps: Step[] = [{ groupRefId: 'g1', enabled: true }]
     
-    const result = resolveNewName(oldPath, steps, mockRegexLibrary, circularGroups)
+    const result = resolveNewName(oldPath, steps, mockRegexLibrary, circularGroups, mockNormalization)
     expect(result).toBe('file.txt')
+  })
+
+  it('should apply normalization step (NFKC + symbol rules)', () => {
+    const oldPath = 'ＮＨＫ　2025:12-25.txt'
+    const steps: Step[] = [{ normalize: true, enabled: true }]
+
+    const result = resolveNewName(oldPath, steps, [], [], mockNormalization)
+    expect(result).toBe('NHK 2025：12-25.txt')
   })
 
   describe('file management', () => {
@@ -145,7 +163,7 @@ describe('useRename', () => {
       vi.mocked(invoke).mockResolvedValue(mockResults)
 
       const steps: Step[] = [{ regexId: 'rx1', enabled: true }]
-      await executeRename(steps, mockRegexLibrary, mockGroups)
+      await executeRename(steps, mockRegexLibrary, mockGroups, mockNormalization)
 
       expect(invoke).toHaveBeenCalledWith('execute_rename_files', expect.anything())
       expect(selectedFiles.value[0]).toBe('C:/old/2023年01月01日.txt')
@@ -162,7 +180,7 @@ describe('useRename', () => {
       const steps: Step[] = [{ regexId: 'rx1', enabled: true }]
 
       try {
-        await expect(executeRename(steps, mockRegexLibrary, mockGroups)).rejects.toThrow('Rename failed')
+        await expect(executeRename(steps, mockRegexLibrary, mockGroups, mockNormalization)).rejects.toThrow('Rename failed')
       } finally {
         consoleErrorSpy.mockRestore()
       }
