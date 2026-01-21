@@ -20,6 +20,12 @@
 
 このリポジトリには GitHub Actions の workflow を用意しています。
 
+## テスト（開発者向け）
+
+- `npm test` : Vitest（watch）
+- `npm run test:verbose` : Vitest（CI向け / 全テスト名を表示）
+- `npm run test:coverage` : Vitest（CI向け / カバレッジ出力）
+
 ### PR でテストが落ちたらビルドしない
 
 - **対象**: `main` 向け Pull Request
@@ -36,6 +42,7 @@
 - **内容**:
   - 先に `test` ジョブが走り、成功した場合のみ `build-windows` が実行されます（`needs: test`）
   - `tauri-apps/tauri-action` を使って Windows 版の成果物を GitHub Release にアップロードします
+  - Portable zip には exe と README.md を同梱します（exe は `package.json` の `name` を元に `${name}.exe` へリネームして格納します）
 
 #### リリース手順（例）
 
