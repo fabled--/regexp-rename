@@ -7,6 +7,8 @@
     "build": "vue-tsc && vite build",
     "preview": "vite preview",
     "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:verbose": "vitest run --reporter verbose",
     "release:version": "node scripts/bump-version.mjs",
     "release:tag": "node scripts/push-tag.mjs",
     "tauri": "tauri"
