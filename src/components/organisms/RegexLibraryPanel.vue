@@ -27,6 +27,36 @@ const previewResult = computed(() => {
   }
 })
 
+const captureGroups = computed(() => {
+  const sample = form.value.sample || ''
+  if (!form.value.pattern || !sample) return null
+
+  try {
+    const re = new RegExp(form.value.pattern)
+    const m = re.exec(sample)
+    if (!m) return []
+    if (m.length <= 1) return []
+    return m.slice(1).map((value, idx) => ({
+      index: idx + 1,
+      value: value ?? ''
+    }))
+  } catch (e) {
+    return null
+  }
+})
+
+const groupColorClass = (index: number) => {
+  const colors = [
+    'bg-blue-50 text-blue-700 border-blue-200',
+    'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'bg-purple-50 text-purple-700 border-purple-200',
+    'bg-amber-50 text-amber-800 border-amber-200',
+    'bg-rose-50 text-rose-700 border-rose-200',
+    'bg-cyan-50 text-cyan-700 border-cyan-200'
+  ]
+  return colors[(index - 1) % colors.length]
+}
+
 const openModal = (regex?: RegexDef) => {
   if (regex) {
     editingId.value = regex.id
@@ -158,6 +188,24 @@ const addToActiveGroup = async (regexId: string) => {
               <div class="flex items-center gap-2 text-sm mt-1">
                 <span class="text-gray-500">結果:</span>
                 <span class="font-mono font-bold text-blue-600">{{ previewResult }}</span>
+              </div>
+
+              <div v-if="captureGroups && captureGroups.length > 0" class="mt-2">
+                <div class="text-xs text-gray-500 mb-1">マッチグループ:</div>
+                <div class="flex flex-wrap gap-2">
+                  <div
+                    v-for="g in captureGroups"
+                    :key="g.index"
+                    class="inline-flex items-center gap-2 px-2 py-1 rounded-md border text-xs font-mono"
+                    :class="groupColorClass(g.index)"
+                  >
+                    <span class="font-bold">${{ g.index }}:</span>
+                    <span class="break-all">{{ g.value }}</span>
+                  </div>
+                </div>
+              </div>
+              <div v-else-if="captureGroups && captureGroups.length === 0" class="mt-2 text-xs text-gray-400">
+                マッチグループはありません
               </div>
             </div>
           </div>
