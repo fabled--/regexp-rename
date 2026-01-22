@@ -26,6 +26,10 @@ export const useSettingsStore = defineStore('settings', () => {
       if (data) {
         settings.value = {
           ...data,
+          regexLibrary: (data.regexLibrary ?? []).map(r => ({
+            ...r,
+            tags: r.tags ?? []
+          })),
           normalization: {
             space: data.normalization?.space ?? true,
             waveDash: data.normalization?.waveDash ?? true,

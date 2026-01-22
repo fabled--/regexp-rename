@@ -4,6 +4,7 @@ export interface RegexDef {
   pattern: string;
   replacement: string;
   sample?: string;
+  tags?: string[];
 }
 
 export interface NormalizationOptions {
