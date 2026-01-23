@@ -13,7 +13,65 @@ const form = ref<RegexDef>({
   name: '',
   pattern: '',
   replacement: '',
-  sample: ''
+  sample: '',
+  tags: []
+})
+
+const tagInput = ref('')
+const tagSuggestionIndex = ref(0)
+
+const selectedFilterTags = ref<string[]>([])
+const filterTagInput = ref('')
+const filterTagSuggestionIndex = ref(0)
+
+const normalizeTag = (tag: string) => tag.trim()
+
+const uniqueTags = (tags: string[]) => {
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const t of tags) {
+    const tt = normalizeTag(t)
+    if (!tt) continue
+    const key = tt.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(tt)
+  }
+  return out
+}
+
+const allTags = computed(() => {
+  const tags = settings.value.regexLibrary.flatMap(r => r.tags ?? [])
+  return uniqueTags(tags).sort((a, b) => a.localeCompare(b))
+})
+
+const tagSuggestions = computed(() => {
+  const q = tagInput.value.trim().toLowerCase()
+  const selected = new Set((form.value.tags ?? []).map(t => t.toLowerCase()))
+  const candidates = allTags.value.filter(t => !selected.has(t.toLowerCase()))
+  if (!q) return candidates
+  return candidates.filter(t => t.toLowerCase().includes(q))
+})
+
+const filterTagSuggestions = computed(() => {
+  const q = filterTagInput.value.trim().toLowerCase()
+  const selected = new Set(selectedFilterTags.value.map(t => t.toLowerCase()))
+  const candidates = allTags.value.filter(t => !selected.has(t.toLowerCase()))
+  if (!q) return []
+  return candidates.filter(t => t.toLowerCase().includes(q))
+})
+
+const normalizeReplacementForJs = (replacement: string) => {
+  return replacement.replace(/\$\{(\d+)\}/g, (_m, n) => `$${n}`)
+}
+
+const filteredRegexLibrary = computed(() => {
+  const required = selectedFilterTags.value.map(t => t.toLowerCase())
+  if (required.length === 0) return settings.value.regexLibrary
+  return settings.value.regexLibrary.filter(r => {
+    const tags = (r.tags ?? []).map(t => t.toLowerCase())
+    return required.every(req => tags.includes(req))
+  })
 })
 
 const previewResult = computed(() => {
@@ -21,7 +79,7 @@ const previewResult = computed(() => {
   if (!form.value.pattern || !sample) return sample
   try {
     const re = new RegExp(form.value.pattern, 'g')
-    return sample.replace(re, form.value.replacement)
+    return sample.replace(re, normalizeReplacementForJs(form.value.replacement))
   } catch (e) {
     return 'Invalid Regex'
   }
@@ -60,11 +118,20 @@ const groupColorClass = (index: number) => {
 const openModal = (regex?: RegexDef) => {
   if (regex) {
     editingId.value = regex.id
-    form.value = { ...regex, sample: regex.sample || '' }
+    form.value = { ...regex, sample: regex.sample || '', tags: regex.tags ?? [] }
   } else {
     editingId.value = null
-    form.value = { id: `rx-${Date.now()}`, name: '', pattern: '', replacement: '', sample: '' }
+    form.value = {
+      id: `rx-${Date.now()}`,
+      name: '',
+      pattern: '',
+      replacement: '',
+      sample: '',
+      tags: uniqueTags(selectedFilterTags.value ?? [])
+    }
   }
+  tagInput.value = ''
+  tagSuggestionIndex.value = 0
   showModal.value = true
 }
 
@@ -72,8 +139,104 @@ const closeModal = () => {
   showModal.value = false
 }
 
+const addTagToForm = async (tag: string) => {
+  const t = normalizeTag(tag)
+  if (!t) return
+  form.value.tags = uniqueTags([...(form.value.tags ?? []), t])
+  tagInput.value = ''
+  tagSuggestionIndex.value = 0
+}
+
+const removeTagFromForm = async (tag: string) => {
+  const key = tag.toLowerCase()
+  form.value.tags = (form.value.tags ?? []).filter(t => t.toLowerCase() !== key)
+}
+
+const handleTagKeydown = async (e: KeyboardEvent) => {
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    if (tagSuggestions.value.length === 0) return
+    tagSuggestionIndex.value = (tagSuggestionIndex.value + 1) % tagSuggestions.value.length
+    return
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    if (tagSuggestions.value.length === 0) return
+    tagSuggestionIndex.value = (tagSuggestionIndex.value - 1 + tagSuggestions.value.length) % tagSuggestions.value.length
+    return
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    if (tagSuggestions.value.length > 0) {
+      await addTagToForm(tagSuggestions.value[tagSuggestionIndex.value] ?? '')
+      return
+    }
+    await addTagToForm(tagInput.value)
+    return
+  }
+  if (e.key === 'Escape') {
+    tagInput.value = ''
+    tagSuggestionIndex.value = 0
+    return
+  }
+  if (e.key === 'Backspace' && tagInput.value.length === 0) {
+    const tags = form.value.tags ?? []
+    if (tags.length === 0) return
+    await removeTagFromForm(tags[tags.length - 1])
+  }
+}
+
+const addFilterTag = async (tag: string) => {
+  const t = normalizeTag(tag)
+  if (!t) return
+  selectedFilterTags.value = uniqueTags([...(selectedFilterTags.value ?? []), t])
+  filterTagInput.value = ''
+  filterTagSuggestionIndex.value = 0
+}
+
+const removeFilterTag = async (tag: string) => {
+  const key = tag.toLowerCase()
+  selectedFilterTags.value = (selectedFilterTags.value ?? []).filter(t => t.toLowerCase() !== key)
+}
+
+const handleFilterTagKeydown = async (e: KeyboardEvent) => {
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    if (filterTagSuggestions.value.length === 0) return
+    filterTagSuggestionIndex.value = (filterTagSuggestionIndex.value + 1) % filterTagSuggestions.value.length
+    return
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    if (filterTagSuggestions.value.length === 0) return
+    filterTagSuggestionIndex.value = (filterTagSuggestionIndex.value - 1 + filterTagSuggestions.value.length) % filterTagSuggestions.value.length
+    return
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    if (filterTagSuggestions.value.length > 0) {
+      await addFilterTag(filterTagSuggestions.value[filterTagSuggestionIndex.value] ?? '')
+      return
+    }
+    await addFilterTag(filterTagInput.value)
+    return
+  }
+  if (e.key === 'Escape') {
+    filterTagInput.value = ''
+    filterTagSuggestionIndex.value = 0
+    return
+  }
+  if (e.key === 'Backspace' && filterTagInput.value.length === 0) {
+    const tags = selectedFilterTags.value ?? []
+    if (tags.length === 0) return
+    await removeFilterTag(tags[tags.length - 1])
+  }
+}
+
 const saveRegex = async () => {
   if (!form.value.pattern) return
+
+  form.value.tags = uniqueTags(form.value.tags ?? [])
   
   if (editingId.value) {
     const idx = settings.value.regexLibrary.findIndex(r => r.id === editingId.value)
@@ -120,13 +283,61 @@ const addToActiveGroup = async (regexId: string) => {
       </button>
     </div>
 
+    <div v-if="settings.regexLibrary.length > 0" class="mb-4">
+      <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+        <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">タグで絞り込み</div>
+        <div class="relative">
+          <div class="flex flex-wrap items-center gap-2 p-2 bg-white border border-gray-300 rounded-lg">
+            <button
+              v-for="t in selectedFilterTags"
+              :key="t"
+              type="button"
+              class="inline-flex items-center gap-1 px-2 py-1 rounded-md border text-xs bg-blue-50 text-blue-700 border-blue-200"
+              @click="removeFilterTag(t)"
+              title="クリックで解除"
+            >
+              <span class="font-semibold">{{ t }}</span>
+              <span class="text-blue-500">×</span>
+            </button>
+            <input
+              v-model="filterTagInput"
+              type="text"
+              placeholder="タグを入力して絞り込み..."
+              class="flex-1 min-w-0 text-sm outline-none"
+              @keydown="handleFilterTagKeydown"
+            >
+          </div>
+
+          <div
+            v-if="filterTagInput.trim().length > 0 && filterTagSuggestions.length > 0"
+            class="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-48 overflow-auto"
+          >
+            <button
+              v-for="(t, idx) in filterTagSuggestions"
+              :key="t"
+              type="button"
+              class="w-full text-left px-3 py-2 text-sm hover:bg-blue-50"
+              :class="idx === filterTagSuggestionIndex ? 'bg-blue-50' : ''"
+              @click="addFilterTag(t)"
+            >
+              {{ t }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div v-if="settings.regexLibrary.length === 0" class="text-center py-12 border border-dashed border-gray-200 rounded-lg text-gray-500">
       ライブラリが空です
     </div>
 
+    <div v-else-if="filteredRegexLibrary.length === 0" class="text-center py-12 border border-dashed border-gray-200 rounded-lg text-gray-500">
+      条件に一致する正規表現がありません
+    </div>
+
     <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div 
-        v-for="regex in settings.regexLibrary" 
+        v-for="regex in filteredRegexLibrary" 
         :key="regex.id" 
         class="relative p-4 border border-gray-200 rounded-lg hover:border-blue-300 transition-all group overflow-hidden"
       >
@@ -149,6 +360,15 @@ const addToActiveGroup = async (regexId: string) => {
               </svg>
             </button>
           </div>
+        </div>
+        <div v-if="(regex.tags ?? []).length > 0" class="flex flex-wrap gap-2 mb-2">
+          <span
+            v-for="t in (regex.tags ?? [])"
+            :key="t"
+            class="inline-flex items-center px-2 py-1 rounded-md border text-xs bg-gray-50 text-gray-700 border-gray-200"
+          >
+            {{ t }}
+          </span>
         </div>
         <div class="space-y-1">
           <div class="text-xs font-mono text-gray-500 break-all leading-relaxed"><span class="font-bold text-gray-400 mr-1">Pattern:</span>{{ regex.pattern }}</div>
@@ -173,6 +393,49 @@ const addToActiveGroup = async (regexId: string) => {
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">置換文字列</label>
             <input v-model="form.replacement" type="text" class="w-full border rounded-lg p-2 font-mono focus:ring-2 focus:ring-blue-500 outline-none" placeholder="$1年$2月">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">タグ</label>
+            <div class="relative">
+              <div class="flex flex-wrap items-center gap-2 p-2 bg-white border border-gray-300 rounded-lg">
+                <button
+                  v-for="t in (form.tags ?? [])"
+                  :key="t"
+                  type="button"
+                  class="inline-flex items-center gap-1 px-2 py-1 rounded-md border text-xs bg-blue-50 text-blue-700 border-blue-200"
+                  @click="removeTagFromForm(t)"
+                  title="クリックで削除"
+                >
+                  <span class="font-semibold">{{ t }}</span>
+                  <span class="text-blue-500">×</span>
+                </button>
+                <input
+                  v-model="tagInput"
+                  type="text"
+                  placeholder="タグを追加..."
+                  class="flex-1 min-w-0 text-sm outline-none"
+                  @keydown="handleTagKeydown"
+                >
+              </div>
+
+              <div
+                v-if="tagSuggestions.length > 0 && tagInput.trim().length > 0"
+                class="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-48 overflow-auto"
+              >
+                <button
+                  v-for="(t, idx) in tagSuggestions"
+                  :key="t"
+                  type="button"
+                  class="w-full text-left px-3 py-2 text-sm hover:bg-blue-50"
+                  :class="idx === tagSuggestionIndex ? 'bg-blue-50' : ''"
+                  @click="addTagToForm(t)"
+                >
+                  {{ t }}
+                </button>
+              </div>
+            </div>
+            <div class="mt-1 text-xs text-gray-400">Enterで追加、↑↓で候補選択、クリックで削除</div>
           </div>
 
           <!-- Sample Preview (Always shown) -->

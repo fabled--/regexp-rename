@@ -1,7 +1,16 @@
 import { ref } from 'vue'
-import { ask } from '@tauri-apps/plugin-dialog'
+import { ask, message } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import type { RenameResult, Step, RegexDef, Group, RenameStep, NormalizationOptions } from '../types'
+
+const hasUnsupportedLookaround = (pattern: string) => {
+  return (
+    pattern.includes('(?=') ||
+    pattern.includes('(?!') ||
+    pattern.includes('(?<=') ||
+    pattern.includes('(?<!')
+  )
+}
 
 const applyNormalization = (input: string, options: NormalizationOptions): string => {
   let s = input.normalize('NFKC')
@@ -30,6 +39,10 @@ const applyNormalization = (input: string, options: NormalizationOptions): strin
   }
 
   return s
+}
+
+const normalizeReplacementForJs = (replacement: string) => {
+  return replacement.replace(/\$\{(\d+)\}/g, (_m, n) => `$${n}`)
 }
 
 export function useRename() {
@@ -95,7 +108,7 @@ export function useRename() {
           stem = applyNormalization(stem, normalization)
         } else {
           const re = new RegExp(step.pattern, 'g')
-          stem = stem.replace(re, step.replacement)
+          stem = stem.replace(re, normalizeReplacementForJs(step.replacement))
         }
       }
       return stem + ext
@@ -110,7 +123,21 @@ export function useRename() {
     groups: Group[],
     normalization: NormalizationOptions
   ) => {
-    if (selectedFiles.value.length === 0 || steps.length === 0) return
+    if (selectedFiles.value.length === 0) {
+      await message('ファイルが選択されていません。', {
+        title: 'リネームを実行できません',
+        kind: 'warning'
+      })
+      return
+    }
+
+    if (steps.length === 0) {
+      await message('リネーム手順（ステップ）が設定されていません。グループを選択するか、ステップを追加してください。', {
+        title: 'リネームを実行できません',
+        kind: 'warning'
+      })
+      return
+    }
 
     const confirmed = await ask(`選択された ${selectedFiles.value.length} 個のファイルをリネームしますか？`, {
       title: 'リネームの確認',
@@ -147,7 +174,35 @@ export function useRename() {
     
     resolveSteps(steps, new Set())
 
-    if (flattenedSteps.length === 0) return
+    if (flattenedSteps.length === 0) {
+      await message('有効なリネーム手順（ステップ）がありません。ステップが無効化されていないか確認してください。', {
+        title: 'リネームを実行できません',
+        kind: 'warning'
+      })
+      return
+    }
+
+    const unsupportedPatterns = flattenedSteps
+      .filter((s): s is Extract<RenameStep, { type: 'regex' }> => s.type === 'regex')
+      .map(s => s.pattern)
+      .filter(p => hasUnsupportedLookaround(p))
+
+    if (unsupportedPatterns.length > 0) {
+      const lines = unsupportedPatterns
+        .slice(0, 5)
+        .map(p => p)
+        .join('\n')
+      const suffix = unsupportedPatterns.length > 5 ? `\n...and ${unsupportedPatterns.length - 5} more` : ''
+
+      await message(
+        `バックエンドの正規表現エンジンは look-around（先読み/後読み）に対応していません。\n\n対象パターン:\n${lines}${suffix}`,
+        {
+          title: 'リネームを実行できません',
+          kind: 'warning'
+        }
+      )
+      return
+    }
 
     isRenaming.value = true
     try {
@@ -156,6 +211,19 @@ export function useRename() {
         steps: flattenedSteps,
         normalization
       })
+
+      const failed = results.filter(r => !r.success)
+      if (failed.length > 0) {
+        const lines = failed
+          .slice(0, 10)
+          .map(r => `${r.oldName}: ${r.error ?? 'unknown error'}`)
+          .join('\n')
+        const suffix = failed.length > 10 ? `\n...and ${failed.length - 10} more` : ''
+        await message(`${failed.length} 件のリネームに失敗しました。\n\n${lines}${suffix}`, {
+          title: 'リネーム結果',
+          kind: 'warning'
+        })
+      }
       
       results.forEach((res: RenameResult) => {
         if (res.success && res.newName) {
@@ -172,6 +240,10 @@ export function useRename() {
       return results
     } catch (error) {
       console.error('Rename failed:', error)
+      await message(String(error), {
+        title: 'リネームに失敗しました',
+        kind: 'error'
+      })
       throw error
     } finally {
       isRenaming.value = false

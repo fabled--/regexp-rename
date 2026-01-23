@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useRename } from '@/composables/useRename'
 import type { Step, RegexDef, Group, NormalizationOptions } from '@/types'
 import { invoke } from '@tauri-apps/api/core'
-import { ask } from '@tauri-apps/plugin-dialog'
+import { ask, message } from '@tauri-apps/plugin-dialog'
 
 // Tauriのinvokeをモック化
 vi.mock('@tauri-apps/api/core', () => ({
@@ -12,12 +12,14 @@ vi.mock('@tauri-apps/api/core', () => ({
 // Tauriのaskをモック化
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   ask: vi.fn()
+  ,message: vi.fn()
 }))
 
 describe('useRename', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(ask).mockResolvedValue(true) // デフォルトで確認OKとする
+    vi.mocked(message).mockResolvedValue(null as any)
   })
 
   const { resolveNewName, executeRename, addFiles, selectedFiles } = useRename()
@@ -131,6 +133,31 @@ describe('useRename', () => {
     expect(result).toBe('NHK 2025：12-25.txt')
   })
 
+  it('should support ${n} replacement syntax in preview (resolveNewName)', () => {
+    const oldPath = '20260116_ドラマ (ep:2) (station:MX).mkv'
+    const regexLibrary: RegexDef[] = [
+      {
+        id: 'rx_ep_pad',
+        name: 'ep pad',
+        pattern: '(\\(ep[:：])(\\d)\\)([^0-9]|$)',
+        replacement: '${1}0$2)$3'
+      },
+      {
+        id: 'rx_ep_to_title',
+        name: 'ep to title',
+        pattern: '\\(ep[:：](\\d+)\\)',
+        replacement: '第$1話'
+      }
+    ]
+    const steps: Step[] = [
+      { regexId: 'rx_ep_pad', enabled: true },
+      { regexId: 'rx_ep_to_title', enabled: true }
+    ]
+
+    const result = resolveNewName(oldPath, steps, regexLibrary, [], mockNormalization)
+    expect(result).toBe('20260116_ドラマ 第02話 (station:MX).mkv')
+  })
+
   describe('file management', () => {
     it('should add unique files', () => {
       const { selectedFiles, addFiles } = useRename()
@@ -167,6 +194,26 @@ describe('useRename', () => {
 
       expect(invoke).toHaveBeenCalledWith('execute_rename_files', expect.anything())
       expect(selectedFiles.value[0]).toBe('C:/old/2023年01月01日.txt')
+    })
+
+    it('should not call backend when look-around is used', async () => {
+      const { addFiles, executeRename } = useRename()
+      addFiles(['C:/old/file.txt'])
+
+      const lookaroundRegexLibrary: RegexDef[] = [
+        {
+          id: 'rx_la',
+          name: 'lookaround',
+          pattern: '(?=a)b',
+          replacement: 'x'
+        }
+      ]
+      const steps: Step[] = [{ regexId: 'rx_la', enabled: true }]
+
+      await executeRename(steps, lookaroundRegexLibrary, [], mockNormalization)
+
+      expect(invoke).not.toHaveBeenCalled()
+      expect(message).toHaveBeenCalled()
     })
 
     it('should handle backend error', async () => {

@@ -67,6 +67,8 @@ pub struct RegexDef {
     pub replacement: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sample: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
