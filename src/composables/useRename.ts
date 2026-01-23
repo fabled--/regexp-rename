@@ -41,6 +41,10 @@ const applyNormalization = (input: string, options: NormalizationOptions): strin
   return s
 }
 
+const normalizeReplacementForJs = (replacement: string) => {
+  return replacement.replace(/\$\{(\d+)\}/g, (_m, n) => `$${n}`)
+}
+
 export function useRename() {
   const selectedFiles = ref<string[]>([])
   const isRenaming = ref(false)
@@ -104,7 +108,7 @@ export function useRename() {
           stem = applyNormalization(stem, normalization)
         } else {
           const re = new RegExp(step.pattern, 'g')
-          stem = stem.replace(re, step.replacement)
+          stem = stem.replace(re, normalizeReplacementForJs(step.replacement))
         }
       }
       return stem + ext

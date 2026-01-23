@@ -61,6 +61,10 @@ const filterTagSuggestions = computed(() => {
   return candidates.filter(t => t.toLowerCase().includes(q))
 })
 
+const normalizeReplacementForJs = (replacement: string) => {
+  return replacement.replace(/\$\{(\d+)\}/g, (_m, n) => `$${n}`)
+}
+
 const filteredRegexLibrary = computed(() => {
   const required = selectedFilterTags.value.map(t => t.toLowerCase())
   if (required.length === 0) return settings.value.regexLibrary
@@ -75,7 +79,7 @@ const previewResult = computed(() => {
   if (!form.value.pattern || !sample) return sample
   try {
     const re = new RegExp(form.value.pattern, 'g')
-    return sample.replace(re, form.value.replacement)
+    return sample.replace(re, normalizeReplacementForJs(form.value.replacement))
   } catch (e) {
     return 'Invalid Regex'
   }
